@@ -4,16 +4,15 @@ Track progress through a calisthenics skill tree — handstand, muscle-up, and t
 progressions underneath them. A local-first, installable PWA: it works with no signal, keeps
 no accounts, and talks to no server.
 
-This is a **scaffold**. The engine and content model are complete and tested; the UI is a
-read-only map and ladder that proves the engine works end to end. The logging screen is the
-next piece of work.
+Five screens: Today, the tree map, a skill's ladder, logging a set, and per-step history.
+Everything works offline once installed.
 
 ## Running it
 
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 77 tests
+npm test           # 95 tests
 npm run typecheck
 npm run build      # typecheck + production build + service worker
 ```
@@ -46,11 +45,24 @@ Two consequences worth knowing about:
 src/content/     the authored tree -- schema.ts, tree.ts, skills/
 src/engine/      pure functions, no I/O: criterion, attainment, unlock, projection, layout
 src/store/       IndexedDB (db.ts), the append-only log (log.ts), export/import (backup.ts)
-src/views/       read-only map and ladder
-tests/           77 tests, engine + store + content health
+src/views/       today, tree map, skill ladder, log a set, history, settings
+tests/           95 tests, engine + store + content health
 ```
 
-`src/engine/projection.ts` is the only entry point a view needs.
+`src/engine/projection.ts` is the only entry point a view needs. Routing is on the hash
+(`#/today`, `#/log/handstand%2Fwall-plank`), so the phone back button works and a reload
+keeps your place.
+
+## Logging a set
+
+The controls come from the step's own `Criterion`, so adding a criterion kind to the schema
+surfaces in the UI rather than needing a parallel list of form widgets: a stopwatch for
+holds, a stepper for reps, two steppers for per-side work, a checklist for form checks.
+
+**The stopwatch reads wall-clock deltas, never a tick count.** A backgrounded phone
+throttles `setInterval`, and a counted timer would silently under-report a hold -- which is
+the failure mode that quietly denies someone a step they earned. Ticks only trigger a
+repaint of the digits; the number shown is always `now - startedAt`.
 
 ## Content rules
 
@@ -61,6 +73,18 @@ instead, so historical logs still resolve. `order` is display position only, nev
 a duplicate ID, a skill/step ID mismatch, or a cycle. These are invisible in review and
 silently lock a branch forever, so they are checked in CI rather than by eye. (It earned its
 keep immediately: it caught a copy-pasted ID prefix on the first run.)
+
+## Deploying
+
+`.github/workflows/deploy.yml` builds and publishes to GitHub Pages on a push to `main`.
+Two things it cannot do for itself:
+
+1. **Pages must be enabled** in repository settings with source "GitHub Actions".
+2. **Pages on a private repository needs a paid GitHub plan.** On the free tier this
+   repository has to be public.
+
+The Vite `base` is taken from `GITHUB_REPOSITORY` at build time rather than hardcoded --
+a wrong base on a project Pages site is not a subtle bug, it is a blank white page.
 
 ## Adding sync later
 

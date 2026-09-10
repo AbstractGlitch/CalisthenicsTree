@@ -112,4 +112,35 @@ export async function revokeOverride(stepId: StepId, reason: string): Promise<vo
 }
 
 export const newSessionId = uuid;
+
+const SESSION_KEY = "calisthenics-tree:session";
+
+/**
+ * The session id for today, stable across reloads.
+ *
+ * Held in localStorage rather than memory so closing the app mid-workout -- a phone
+ * locking itself between sets is the normal case, not the exception -- resumes the same
+ * session instead of inventing a second one. Sessions are bucketed by calendar day for
+ * consolidation regardless (see attainment.groupIntoSessions), so this is about honest
+ * records rather than about the unlock rules.
+ */
+export function currentSessionId(now = new Date()): string {
+  const today = localDateOf(now);
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw) as { date: string; id: string };
+      if (saved.date === today && saved.id) return saved.id;
+    }
+  } catch {
+    // A private window, cleared site data, or storage disabled. Fall through to a fresh id.
+  }
+  const id = uuid();
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ date: today, id }));
+  } catch {
+    // Not fatal: the id is still returned, it just will not survive a reload.
+  }
+  return id;
+}
 export { putAll, STORE_SETS };

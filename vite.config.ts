@@ -4,7 +4,16 @@ import { VitePWA } from "vite-plugin-pwa";
 // The service worker is generated, not hand-written. magnetic-practice maintains its
 // sw.js ASSETS array by hand, which is fine for six unhashed files and breaks the moment
 // there are hashed bundles -- exactly the situation here.
+/**
+ * On GitHub Pages this is served from /CalisthenicsTree/, not the domain root. A wrong
+ * base is not a subtle bug -- every asset 404s and the page renders white -- so it is
+ * taken from the repository name Actions already knows rather than hardcoded in two places.
+ */
+const repo = process.env["GITHUB_REPOSITORY"]?.split("/")[1];
+const base = process.env["GITHUB_ACTIONS"] && repo ? `/${repo}/` : "/";
+
 export default defineConfig({
+  base,
   plugins: [
     VitePWA({
       registerType: "autoUpdate",

@@ -10,18 +10,7 @@ import type { TreeContent } from "../content/schema.js";
 import { layoutTree } from "../engine/layout.js";
 import { buildUnlockGraph } from "../engine/projection.js";
 import type { TreeProjection, UnlockEdge } from "../engine/types.js";
-
-const ACTION_LABEL: Record<string, string> = {
-  locked: "Locked",
-  ready_to_start: "Ready to start",
-  in_progress: "In progress",
-  needs_consolidation: "Needs consolidating",
-  consolidated: "Consolidated",
-  needs_refresh: "Needs a refresh",
-};
-
-const esc = (s: string) => s.replace(/[&<>"]/g, (c) =>
-  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+import { ACTION_LABEL, esc } from "./ui.js";
 
 /**
  * A shallow quadratic curve. `index` bends successive edges into the same target further
@@ -47,7 +36,7 @@ export function renderTree(content: TreeContent, projection: TreeProjection): st
       const n = seen.get(e.toSkillId) ?? 0;
       seen.set(e.toSkillId, n + 1);
       return `<path d="${edgePath(from.x, from.y, to.x, to.y, n)}"
-        fill="none" stroke="${e.satisfied ? "var(--good)" : "var(--locked)"}"
+        fill="none" stroke="${e.satisfied ? "var(--good)" : "var(--dimmer)"}"
         stroke-width="0.4" ${e.gate === "achieved" ? 'stroke-dasharray="2 1.5"' : ""} />`;
     })
     .join("");
@@ -56,12 +45,16 @@ export function renderTree(content: TreeContent, projection: TreeProjection): st
     .map((s) => {
       const p = positions.get(s.skill.id)!;
       const done = s.consolidatedSteps;
-      return `<button class="node" data-action="${s.action}" data-skill="${esc(s.skill.id)}"
+      // The tick is not decoration: gold and green measure dE 14.9 for normal vision,
+      // below the readable floor, so colour alone must never be what tells a finished
+      // skill from one in progress.
+      const mark = s.action === "consolidated" || s.action === "needs_refresh" ? " &check;" : "";
+      return `<button class="node" data-action="${s.action}" data-nav="#/skill/${encodeURIComponent(s.skill.id)}"
         style="left:${p.x}%; top:${p.y}%"
         title="${esc(s.unlock.reason)}"
         aria-label="${esc(s.skill.name)} -- ${ACTION_LABEL[s.action]}. ${esc(s.unlock.reason)}"
         ${s.action === "locked" ? "disabled" : ""}
-      >${esc(s.skill.name)} <span style="color:var(--dim)">${done}/${s.totalSteps}</span></button>`;
+      >${esc(s.skill.name)}${mark} <span style="color:var(--dim)">${done}/${s.totalSteps}</span></button>`;
     })
     .join("");
 
@@ -71,14 +64,14 @@ export function renderTree(content: TreeContent, projection: TreeProjection): st
     : undefined;
 
   return `
-    <h1>Calisthenics Tree</h1>
+    <h1>The tree</h1>
     <p class="sub">${projection.counts.consolidated} consolidated &middot;
       ${projection.counts.inProgress} in progress &middot;
       ${projection.counts.available} ready &middot; ${projection.counts.locked} locked</p>
     <div class="legend">
       <span><i class="swatch" style="background:var(--accent)"></i>ready or in progress</span>
       <span><i class="swatch" style="background:var(--good)"></i>consolidated</span>
-      <span><i class="swatch" style="background:var(--locked)"></i>locked</span>
+      <span><i class="swatch" style="background:var(--dimmer)"></i>locked</span>
       <span>dashed edge = a softer gate (achieved, not consolidated)</span>
     </div>
     <div class="map-scroll">
